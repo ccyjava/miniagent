@@ -43,7 +43,10 @@ def cmd_init(args):
         "workdir": ".",
         "max_steps": 30,
         "hooks": {
-            "PreToolUse": ["./hooks/log.sh"],
+            "PreToolUse": [
+                "./hooks/log.sh",
+                {"match": "^shell$", "run": "./hooks/guard.sh"},
+            ],
             "PostToolUse": ["./hooks/log.sh"],
         },
         "mcp_servers": [
@@ -69,6 +72,12 @@ def cmd_init(args):
         f.write('#!/bin/sh\n# Logs every tool call; exit 2 to block.\n'
                 'echo "[$MINIAGENT_EVENT] $(cat)" >> hooks/events.log\n')
     os.chmod(log, 0o755)
+
+    guard = os.path.join(root, "hooks", "guard.sh")
+    with open(guard, "w") as f:
+        f.write('#!/bin/sh\n# Blocks dangerous shell commands (exit 2 = block).\n'
+                'if grep -q "rm -rf /" ; then echo "refusing rm -rf /" >&2; exit 2; fi\n')
+    os.chmod(guard, 0o755)
 
     with open(os.path.join(root, "tasks", "example.task"), "w") as f:
         f.write("Use the hello skill to greet Ada, then write the greeting to greeting.txt.\n")

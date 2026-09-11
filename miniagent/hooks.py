@@ -9,12 +9,34 @@ payload, e.g. {"tool_input": {...}} to rewrite tool arguments.
 """
 import json
 import os
+import re
 import subprocess
 
 EVENTS = ("SessionStart", "TaskStart", "PreToolUse",
           "PostToolUse", "TaskEnd", "SessionEnd")
 
 BLOCK_EXIT = 2
+
+
+def _normalize(hooks):
+    """Accept three hook forms per event:
+      "./hooks/log.sh"                          -> fires for every tool
+      ["shell|write", "./hooks/guard.sh"]        -> regex matcher on tool name
+      {"match": "shell", "run": "./hooks/g.sh"}  -> same, dict form
+    """
+    norm = {}
+    for event, items in (hooks or {}).items():
+        lst = []
+        for it in items:
+            if isinstance(it, str):
+                lst.append((None, it))
+            elif isinstance(it, (list, tuple)) and len(it) == 2:
+                lst.append((re.compile(it[0]), it[1]))
+            elif isinstance(it, dict) and it.get("run"):
+                pat = it.get("match") or it.get("matcher")
+                lst.append((re.compile(pat) if pat else None, it["run"]))
+        norm[event] = lst
+    return norm
 
 
 class HookResult:
@@ -26,13 +48,16 @@ class HookResult:
 
 class HookRunner:
     def __init__(self, hooks, workdir="."):
-        self.hooks = hooks or {}
+        self.hooks = _normalize(hooks)
         self.workdir = workdir
 
     def fire(self, event, payload):
         """Run all hooks for event. Returns HookResult (blocked if any hook exits 2)."""
         result = HookResult()
-        for cmd in self.hooks.get(event, []):
+        tool_name = payload.get("tool", "")
+        for pattern, cmd in self.hooks.get(event, []):
+            if pattern and not pattern.search(tool_name):
+                continue
             r = self._run_one(cmd, event, payload)
             if r.patch:
                 result.patch.update(r.patch)

@@ -105,10 +105,30 @@ def test_unknown_tool_and_max_steps():
     print("ok: max_steps guard stops runaway loops")
 
 
+def test_hook_matcher_only_fires_for_matching_tool():
+    with tempfile.TemporaryDirectory() as wd:
+        seen = os.path.join(wd, "seen.log")
+        spy = os.path.join(wd, "spy.sh")
+        with open(spy, "w") as f:
+            f.write(f"#!/bin/sh\ncat >> {seen}\n")
+        os.chmod(spy, 0o755)
+        script = [
+            tool_call("write", {"path": "a.txt", "content": "x"}),
+            tool_call("shell", {"command": "echo hi"}),
+            {"role": "assistant", "content": "done"},
+        ]
+        make_agent(script, wd,
+                   hook_cmds={"PreToolUse": [["^shell$", spy]]}).run("do things")
+        logged = open(seen).read()
+        assert "shell" in logged and "write" not in logged
+    print("ok: hook matcher scopes to matching tools")
+
+
 if __name__ == "__main__":
     test_tool_loop_writes_file()
     test_skill_loading_and_run()
     test_pretooluse_hook_can_block()
     test_hook_can_rewrite_args()
+    test_hook_matcher_only_fires_for_matching_tool()
     test_unknown_tool_and_max_steps()
     print("ALL TESTS PASSED")

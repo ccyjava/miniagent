@@ -86,9 +86,16 @@ run: ./run
 
 ```json
 "hooks": {
-  "PreToolUse": ["./hooks/guard.sh"]
+  "PreToolUse": [
+    "./hooks/log.sh",
+    {"match": "^shell$", "run": "./hooks/guard.sh"}
+  ]
 }
 ```
+
+hook 三种写法：纯字符串（所有工具都触发）、`["正则", "命令"]`、
+`{"match": "正则", "run": "命令"}`——正则按工具名匹配（如 `^shell$`、
+`skill__.*`、`mcp__.*`）。
 
 每个 hook 是 shell 命令：stdin 收到事件 JSON，环境变量有
 `MINIAGENT_EVENT`。约定：
