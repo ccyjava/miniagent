@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "miniagent"
+version = "0.1.0"
+description = "The most minimal agent system: tool loop, skills, MCP, hooks, never stops."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []          # stdlib only
+optional-dependencies = { mcp = ["mcp>=1.0"] }
+
+[project.scripts]
+miniagent = "miniagent.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["miniagent*"]
